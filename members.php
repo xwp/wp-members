@@ -82,6 +82,9 @@ class Members_Load {
 		/* Set the database version number of the plugin. */
 		define( 'MEMBERS_DB_VERSION', 2 );
 
+		/* We're using WP_List_Table for the roles list. */
+		define( 'MEMBERS_USE_WP_LIST_TABLE', true );
+
 		/* Set constant path to the members plugin directory. */
 		define( 'MEMBERS_DIR', trailingslashit( plugin_dir_path( __FILE__ ) ) );
 

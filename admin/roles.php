@@ -8,11 +8,16 @@
  */
 
 /* Get the current action performed by the user. */
-$action = isset( $_REQUEST['action'] ) ? esc_attr( $_REQUEST['action'] ) : false;
+require_once __DIR__ . '/roles-list-table.class.php';
+$roles_table = new Members_Roles_List_Table( array(
+	'plural' => 'members-roles',
+) );
 
+$action = isset( $_REQUEST['action'] ) ? esc_attr( $_REQUEST['action'] ) : false;
 /* If the bulk delete has been selected. */
-if ( ( isset( $_POST['bulk-action'] ) && 'delete' == $_POST['bulk-action'] ) || ( isset( $_POST['bulk-action-2'] ) && 'delete' == $_POST['bulk-action-2'] ) )
-	$action = 'bulk-delete';
+$bulk_action = $roles_table->current_action();
+if ( !empty($bulk_action) )
+	$action = $bulk_action;
 
 /* Choose which actions to perform and pages to load according to the $action variable. */
 switch( $action ) {
@@ -27,7 +32,7 @@ switch( $action ) {
 		if ( current_user_can( 'delete_roles' ) && is_array( $delete_roles ) ) {
 
 			/* Verify the nonce. */
-			check_admin_referer( members_get_nonce( 'edit-roles' ) );
+			check_admin_referer( 'bulk-members-roles' );
 
 			/* Send through roles deleted message. */
 			add_action( 'members_pre_edit_roles_form', 'members_message_roles_deleted' );
