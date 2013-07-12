@@ -7,13 +7,15 @@
  * @subpackage Admin
  */
 
-/* Get the current action performed by the user. */
 require_once __DIR__ . '/roles-list-table.class.php';
 $roles_table = new Members_Roles_List_Table( array(
 	'plural' => 'members-roles',
+	'screen' => get_current_screen(),
 ) );
 
+/* Get the current action performed by the user. */
 $action = isset( $_REQUEST['action'] ) ? esc_attr( $_REQUEST['action'] ) : false;
+
 /* If the bulk delete has been selected. */
 $bulk_action = $roles_table->current_action();
 if ( !empty($bulk_action) )

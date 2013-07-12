@@ -8,6 +8,32 @@ require_once( ABSPATH . 'wp-admin/includes/class-wp-list-table.php' );
 
 class Members_Roles_List_Table extends WP_List_Table {
 
+	private $_data = array(
+		'status'   => 'all',
+		'statuses' => 'all',
+		'order'    => 'asc',
+		'orderby'  => 'label',
+		'totals'   => array(
+			'all'      => 0,
+			'active'   => 0,
+			'inactive' => 0,
+		),
+	);
+
+
+	function __construct( $args = array() ) {
+		parent::__construct( $args );
+
+		if ( !empty( $_REQUEST['role_status'] ) && in_array( $_REQUEST['role_status'], array( 'active', 'inactive', 'search' ) ) )
+			$this->_data['status'] = $_REQUEST['role_status'];
+
+		if ( !empty( $_REQUEST['order'] ) && in_array( strtolower($_REQUEST['order']), array( 'asc', 'desc' ) ) )
+			$this->_data['order'] = $_REQUEST['order'];
+
+		if ( !empty( $_REQUEST['orderby'] ) && array_key_exists( strtolower($_REQUEST['orderby']), $this->get_sortable_columns() ) )
+			$this->_data['orderby'] = $_REQUEST['orderby'];
+	}
+
 	function get_bulk_actions() {
 		$actions = array();
 
@@ -36,40 +62,96 @@ class Members_Roles_List_Table extends WP_List_Table {
 		return array(
 			'label' => array( 'label', false ),
 			'name'  => array( 'name',  false ),
+			'users' => array( 'users', false ),
 		);
 	}
 
 
-	function usort_reorder( $a, $b ) {
-		$orderby = ( isset( $_GET['orderby'] ) && in_array( $_GET['orderby'], array_keys( $this->get_sortable_columns() ) ) ) ? $_GET['orderby'] : 'label';
-		$order   = ( isset( $_GET['order'] ) && in_array( strtolower($_GET['order']), array('asc', 'desc') ) ) ? $_GET['order'] : 'asc';
-		$result  = strcmp( $a[$orderby], $b[$orderby] );
+	function _order_callback( $a, $b ) {
+		$result  = strcmp( $a[ $this->_data['orderby'] ], $b[ $this->_data['orderby'] ] );
 
-		return ( $order === 'asc' ) ? $result : -$result;
+		return ( 'asc' === $this->_data['order'] ) ? $result : -$result;
 	}
 
+
 	function prepare_items() {
-		$columns  = $this->get_columns();
-		$hidden   = array();
-		$sortable = $this->get_sortable_columns();
-		$this->_column_headers = array( $columns, $hidden, $sortable );
+		$all_roles = array(
+			'all'      => array(),
+			'active'   => array(),
+			'inactive' => array(),
+		);
 
-		$this->items = array();
 		foreach ( get_editable_roles() as $role => $role_details ) {
-			$role_label = translate_user_role( $role_details['name'] );
 			$user_count = intval( members_get_role_user_count( $role ) );
-
-			$this->items[ sanitize_title( $role_label ) ] = array(
+			$item       = array(
 				'name'       => $role,
-				'label'      => $role_label,
+				'label'      => translate_user_role( $role_details['name'] ),
 				'edit_url'   => admin_url( wp_nonce_url( "users.php?page=roles&amp;action=edit&amp;role={$role}", members_get_nonce( 'edit-roles' ) ) ),
 				'delete_url' => admin_url( wp_nonce_url( "users.php?page=roles&amp;action=delete&amp;role={$role}", members_get_nonce( 'edit-roles' ) ) ),
-				'user_count' => $user_count,
+				'users'      => $user_count,
 				'cap_count'  => count( $role_details['capabilities'] ),
 			);
+
+			$all_roles['all'][ $role ] = $item;
+			$this->_data['totals']['all']++;
+
+			if ( $user_count > 0 ) {
+				$all_roles['active'][ $role ] = $item;
+				$this->_data['totals']['active']++;
+			}
+			else {
+				$all_roles['inactive'][ $role ] = $item;
+				$this->_data['totals']['inactive']++;
+			}
 		}
 
-		usort( $this->items, array( &$this, 'usort_reorder' ) );
+		$this->_column_headers = array(
+			$this->get_columns(),
+			array(),
+			$this->get_sortable_columns()
+		);
+
+		$this->items = $all_roles[ $this->_data['status'] ];
+		usort( $this->items, array( $this, '_order_callback' ) );
+
+		$total_this_page = count( $this->items );
+		$this->set_pagination_args( array(
+			'total_items' => $total_this_page,
+			'per_page'    => 5,
+		) );
+
+	}
+
+
+	function get_views() {
+		$links = array();
+
+		foreach ( $this->_data['totals'] as $type => $count ) {
+			if ( !$count )
+				continue;
+
+			switch ( $type ) {
+				case 'all':
+					$text = _nx( 'All <span class="count">(%s)</span>', 'All <span class="count">(%s)</span>', $count, 'roles', 'members' );
+					break;
+				case 'active':
+					$text = _n( 'Active <span class="count">(%s)</span>', 'Active <span class="count">(%s)</span>', $count, 'roles', 'members' );
+					break;
+				case 'inactive':
+					$text = _n( 'Inctive <span class="count">(%s)</span>', 'Inctive <span class="count">(%s)</span>', $count, 'roles', 'members' );
+					break;
+			}
+
+			$links[ $type ] = sprintf(
+				'<a href="%s"%s>%s</a>',
+				esc_url( add_query_arg( array('page' => 'roles', 'role_status' => $type), 'users.php' ) ),
+				( $type === $this->_data['status'] ) ? ' class="current"' : '',
+				sprintf( $text, number_format_i18n( $count ) )
+			);
+
+		}
+
+		return $links;
 	}
 
 
@@ -141,11 +223,11 @@ class Members_Roles_List_Table extends WP_List_Table {
 				'<a href="%s" title="%s">%s</a>',
 				admin_url( esc_url( "users.php?role={$item['name']}" ) ),
 				sprintf( __( 'View all users with the %s role', 'members' ), $item['label'] ),
-				sprintf( _n( '%s User', '%s Users', $item['user_count'], 'members' ), $item['user_count'] )
+				sprintf( _n( '%s User', '%s Users', $item['users'], 'members' ), $item['users'] )
 			);
 		}
 		else {
-			$out = sprintf( _n( '%s User', '%s Users', $item['user_count'], 'members' ), $item['user_count'] );
+			$out = sprintf( _n( '%s User', '%s Users', $item['users'], 'members' ), $item['users'] );
 		}
 
 		return $out;
@@ -168,7 +250,7 @@ class Members_Roles_List_Table extends WP_List_Table {
 
 
 	function single_row( $item ) {
-		$row_class = ( $item['user_count'] > 0 ) ? 'alternate active' : 'inactive';
+		$row_class = ( $item['users'] > 0 ) ? 'alternate active' : 'inactive';
 		?>
 		<tr class="<?php echo esc_attr($row_class) ?>">
 			<?php echo $this->single_row_columns( $item ); ?>
