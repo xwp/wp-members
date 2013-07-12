@@ -42,6 +42,7 @@ function members_admin_setup() {
 
 		/* Create the Manage Roles page. */
 		$members->edit_roles_page = add_submenu_page( 'users.php', esc_attr__( 'Roles', 'members' ), esc_attr__( 'Roles', 'members' ), $edit_roles_cap, 'roles', 'members_edit_roles_page' );
+		add_action( sprintf('load-%s', $members->edit_roles_page), 'members_prepare_edit_roles_page' );
 
 		/* Create the New Role page. */
 		$members->new_roles_page = add_submenu_page( 'users.php', esc_attr__( 'Add New Role', 'members' ), esc_attr__( 'Add New Role', 'members' ), 'create_roles', 'role-new', 'members_new_role_page' );
@@ -102,6 +103,40 @@ function members_admin_load_post_meta_boxes() {
 	if ( members_get_setting( 'content_permissions' ) )
 		require_once( MEMBERS_ADMIN . 'meta-box-post-content-permissions.php' );
 }
+
+
+/**
+ * Prepare roles page screen.
+ *
+ * @since 0.2.3
+ */
+function members_prepare_edit_roles_page() {
+	global $members;
+
+	get_current_screen()->add_option( 'per_page', array(
+		'default' => 20,
+		'label'   => _x( 'Roles', 'roles per page (screen options)', 'members' ),
+		'option'  => sprintf( '%s_per_page', $members->edit_roles_page ),
+	) );
+}
+
+
+/**
+ * Save pagination setting
+ *
+ * @since 0.2.3
+ */
+function members_save_admin_screen_options( $value, $option, $user_value ) {
+	if ( 'users_page_roles_per_page' === $option ) {
+		$value = absint( $user_value );
+		if ( empty($value) )
+			$value = 20;
+	}
+
+	return $value;
+}
+add_filter( 'set-screen-option', 'members_save_admin_screen_options', 10, 3);
+
 
 /**
  * Loads the role manager main page (Roles).

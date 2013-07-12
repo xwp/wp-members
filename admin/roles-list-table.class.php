@@ -113,11 +113,18 @@ class Members_Roles_List_Table extends WP_List_Table {
 
 		$this->items = $all_roles[ $this->_data['status'] ];
 		usort( $this->items, array( $this, '_order_callback' ) );
-
 		$total_this_page = count( $this->items );
+
+		// Pagination
+		$roles_per_page = $this->get_items_per_page( sprintf( '%s_per_page', get_current_screen()->id ), 999 );
+		$start = ( $this->get_pagenum() - 1 ) * $roles_per_page;
+
+		if ( $total_this_page > $roles_per_page )
+			$this->items = array_slice( $this->items, $start, $roles_per_page );
+
 		$this->set_pagination_args( array(
 			'total_items' => $total_this_page,
-			'per_page'    => 5,
+			'per_page'    => $roles_per_page,
 		) );
 
 	}
@@ -245,7 +252,7 @@ class Members_Roles_List_Table extends WP_List_Table {
 
 
 	function no_items() {
-		_e('No language found.', 'members');
+		_e('No roles found.', 'members');
 	}
 
 
