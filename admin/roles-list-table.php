@@ -5,6 +5,51 @@
  * @package Members
  * @subpackage Admin
  */
+
+/* Get the global $wp_roles variable. */
+//global $wp_roles;
+
+//$wp_roles = get_editable_roles();
+
+/* Get a count of all the roles available. */
+$roles_count = members_count_roles();
+
+/* Get all of the active and inactive roles. */
+$active_roles = members_get_active_roles();
+$inactive_roles = members_get_inactive_roles();
+
+/* Get a count of the active and inactive roles. */
+$active_roles_count = count( $active_roles );
+$inactive_roles_count = count( $inactive_roles );
+
+/* If we're viewing 'active' or 'inactive' roles. */
+if ( !empty( $_GET['role_status'] ) && in_array( $_GET['role_status'], array( 'active', 'inactive' ) ) ) {
+
+	/* Get the role status ('active' or 'inactive'). */
+	$role_status = esc_attr( $_GET['role_status'] );
+
+	/* Set up the roles array. */
+	$list_roles = ( ( 'active' == $role_status ) ? $active_roles : $inactive_roles );
+
+	/* Set the current page URL. */
+	$current_page = admin_url( "users.php?page=roles&role_status={$role_status}" );
+}
+
+/* If viewing the regular role list table. */
+else {
+
+	/* Get the role status ('active' or 'inactive'). */
+	$role_status = 'all';
+
+	/* Set up the roles array. */
+	$list_roles = array_merge( $active_roles, $inactive_roles );//->role_names;
+
+	/* Set the current page URL. */
+	$current_page = $current_page = admin_url( 'users.php?page=roles' );
+}
+
+/* Sort the roles array into alphabetical order. */
+ksort( $list_roles ); ?>
 ?>
 
 <div class="wrap">
